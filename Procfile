@@ -1,1 +1,2 @@
-web: python main.py
+web: python app.py
+release: python setup_database.py
