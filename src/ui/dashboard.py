@@ -14,7 +14,13 @@ class DecisionDashboard:
     def __init__(self):
         self.app = dash.Dash(__name__)
         self.engine = MonteCarloEngine(n_simulations=5000)
-        self.db = DatabaseManager()
+        try:
+            self.db = DatabaseManager()
+            self.db_enabled = True
+        except Exception as e:
+            print(f"⚠️ Base de datos deshabilitada: {e}")
+            self.db = None
+            self.db_enabled = False
         self.setup_layout()
         self.setup_callbacks()
     
@@ -120,10 +126,11 @@ class DecisionDashboard:
             metrics = StatisticsCalculator.calculate_risk_metrics(result)
             
             # Guardar en base de datos
-            try:
-                self.db.save_simulation(scenario, result, metrics)
-            except Exception as e:
-                print(f"Error guardando simulación: {e}")
+            if self.db_enabled:
+                try:
+                    self.db.save_simulation(scenario, result, metrics)
+                except Exception as e:
+                    print(f"Error guardando simulación: {e}")
             
             return self.create_results_layout(result, metrics)
     
@@ -238,4 +245,4 @@ class DecisionDashboard:
     
     def run_server(self, debug=True, port=8050):
         """Ejecuta el servidor del dashboard"""
-        self.app.run_server(debug=debug, port=port, host='0.0.0.0')
+        self.app.run(debug=debug, port=port, host='0.0.0.0')

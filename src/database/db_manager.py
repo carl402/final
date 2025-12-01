@@ -32,6 +32,8 @@ class SimulationRecord(Base):
 class DatabaseManager:
     def __init__(self):
         self.database_url = os.getenv('DATABASE_URL')
+        if not self.database_url:
+            raise Exception("DATABASE_URL no encontrada en variables de entorno")
         self.engine = create_engine(self.database_url)
         self.Session = sessionmaker(bind=self.engine)
         self.create_tables()
