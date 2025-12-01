@@ -5,5 +5,7 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python main.py
     envVars:
-      - key: NEON_DATABASE_URL
+      - key: DATABASE_URL
         value: postgresql://neondb_owner:npg_4mMh2SLfErRe@ep-orange-sky-ahkv6g5o-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+      - key: PORT
+        value: 8050
