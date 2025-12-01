@@ -1,5 +1,5 @@
 import dash
-from dash import dcc, html, Input, Output, State, dash_table
+from dash import dcc, html, Input, Output, State, dash_table, callback_context
 import plotly.graph_objs as go
 import plotly.express as px
 import pandas as pd
@@ -7,6 +7,8 @@ import numpy as np
 from ..simulation.monte_carlo_engine import MonteCarloEngine
 from ..models.business_scenario import BusinessScenario
 from ..utils.statistics import StatisticsCalculator
+from ..auth.auth_manager import AuthManager
+from .projects_manager import ProjectsManager
 
 class DecisionDashboard:
     """Dashboard interactivo para análisis de decisiones empresariales"""
@@ -14,6 +16,9 @@ class DecisionDashboard:
     def __init__(self):
         self.app = dash.Dash(__name__)
         self.engine = MonteCarloEngine(n_simulations=5000)
+        self.auth = AuthManager()
+        self.projects_manager = ProjectsManager(self.auth)
+        self.current_user = None
         self.setup_layout()
         self.setup_callbacks()
     
@@ -21,7 +26,61 @@ class DecisionDashboard:
         """Configura el layout del dashboard"""
         
         self.app.layout = html.Div([
-            html.H1("🎯 Asistente de Decisiones Empresariales - Monte Carlo", 
+            dcc.Store(id='session-store'),
+            html.Div(id='main-content')
+        ])
+    
+    def login_layout(self):
+        """Layout de login"""
+        return html.Div([
+            html.Div([
+                html.H1("🎯 Monte Carlo Decision Engine", 
+                       style={'textAlign': 'center', 'color': '#2c3e50', 'marginBottom': 30}),
+                html.Div([
+                    html.H3("Iniciar Sesión", style={'textAlign': 'center'}),
+                    dcc.Input(id='username', placeholder='Usuario', type='text', 
+                             style={'width': '100%', 'padding': '10px', 'margin': '10px 0'}),
+                    dcc.Input(id='password', placeholder='Contraseña', type='password',
+                             style={'width': '100%', 'padding': '10px', 'margin': '10px 0'}),
+                    html.Button('Iniciar Sesión', id='login-btn', 
+                               style={'width': '100%', 'padding': '10px', 'backgroundColor': '#3498db', 'color': 'white', 'border': 'none'}),
+                    html.Div(id='login-message', style={'textAlign': 'center', 'marginTop': '10px'})
+                ], style={'maxWidth': '400px', 'margin': '0 auto', 'padding': '20px', 
+                         'backgroundColor': '#f8f9fa', 'borderRadius': '10px'})
+            ], style={'display': 'flex', 'justifyContent': 'center', 'alignItems': 'center', 
+                     'minHeight': '100vh', 'backgroundColor': '#ecf0f1'})
+        ])
+    
+    def main_dashboard_layout(self):
+        """Layout principal del dashboard"""
+        return html.Div([
+            # Header con menú
+            html.Div([
+                html.H1("🎯 Monte Carlo Decision Engine", 
+                       style={'display': 'inline-block', 'color': '#2c3e50', 'margin': 0}),
+                html.Div([
+                    dcc.Dropdown(
+                        id='menu-dropdown',
+                        options=[
+                            {'label': '📊 Dashboard', 'value': 'dashboard'},
+                            {'label': '📁 Mis Proyectos', 'value': 'projects'},
+                            {'label': '👥 Gestión Usuarios', 'value': 'users'},
+                            {'label': '🚪 Cerrar Sesión', 'value': 'logout'}
+                        ],
+                        value='dashboard',
+                        style={'width': '200px'}
+                    )
+                ], style={'display': 'inline-block', 'float': 'right'})
+            ], style={'padding': '20px', 'backgroundColor': '#34495e', 'color': 'white', 'marginBottom': '20px'}),
+            
+            # Contenido dinámico
+            html.Div(id='page-content')
+        ])
+    
+    def dashboard_content(self):
+        """Contenido del dashboard de simulación"""
+        return html.Div([
+            html.H1("📊 Simulación Monte Carlo", 
                    style={'textAlign': 'center', 'color': '#2c3e50', 'marginBottom': 30}),
             
             # Panel de configuración
@@ -80,8 +139,53 @@ class DecisionDashboard:
             
         ], style={'maxWidth': '1200px', 'margin': '0 auto', 'padding': '20px'})
     
+    def projects_content(self):
+        """Contenido de proyectos"""
+        if self.current_user:
+            return self.projects_manager.projects_content(self.current_user['id'])
+        return html.Div("Error: Usuario no autenticado")
+    
+    def users_content(self):
+        """Contenido de usuarios"""
+        return self.projects_manager.users_content()
+    
     def setup_callbacks(self):
         """Configura los callbacks del dashboard"""
+        
+        @self.app.callback(
+            Output('main-content', 'children'),
+            Input('session-store', 'data')
+        )
+        def display_page(session_data):
+            if not session_data:
+                return self.login_layout()
+            return self.main_dashboard_layout()
+        
+        @self.app.callback(
+            Output('session-store', 'data'),
+            Input('login-btn', 'n_clicks'),
+            [State('username', 'value'), State('password', 'value')]
+        )
+        def login(n_clicks, username, password):
+            if n_clicks and username and password:
+                result = self.auth.login(username, password)
+                if result:
+                    self.current_user = result['user']
+                    return result
+            return None
+        
+        @self.app.callback(
+            Output('page-content', 'children'),
+            Input('menu-dropdown', 'value')
+        )
+        def display_content(selected_page):
+            if selected_page == 'dashboard':
+                return self.dashboard_content()
+            elif selected_page == 'projects':
+                return self.projects_content()
+            elif selected_page == 'users':
+                return self.users_content()
+            return self.dashboard_content()
         
         @self.app.callback(
             Output('results-container', 'children'),

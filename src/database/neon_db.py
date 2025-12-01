@@ -32,6 +32,7 @@ class NeonDB:
                         inflation_rate DECIMAL(5,4),
                         market_volatility DECIMAL(5,4),
                         time_horizon INTEGER,
+                        project_id INTEGER REFERENCES projects(id),
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
