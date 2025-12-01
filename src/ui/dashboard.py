@@ -231,4 +231,4 @@ class DecisionDashboard:
     
     def run_server(self, debug=True, port=8050):
         """Ejecuta el servidor del dashboard"""
-        self.app.run_server(debug=debug, port=port)
+        self.app.run(debug=debug, port=port, host='0.0.0.0')
