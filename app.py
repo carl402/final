@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Importar después de cargar variables
-from src.ui.new_dashboard import MonteCarloApp
+from src.ui.simple_app import SimpleApp
 
 if __name__ == "__main__":
-    app = MonteCarloApp()
+    app = SimpleApp()
     port = int(os.environ.get('PORT', 8050))
     app.run_server(debug=False, port=port)

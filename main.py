@@ -14,7 +14,7 @@ load_dotenv()
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.ui.new_dashboard import MonteCarloApp
+from src.ui.simple_app import SimpleApp
 from src.simulation.monte_carlo_engine import MonteCarloEngine
 from src.models.business_scenario import BusinessScenario
 from src.utils.statistics import StatisticsCalculator
@@ -103,7 +103,7 @@ def main():
     print("   Presione Ctrl+C para detener el servidor")
     
     try:
-        dashboard = MonteCarloApp()
+        dashboard = SimpleApp()
         port = int(os.environ.get('PORT', 8050))
         dashboard.run_server(debug=False, port=port)
     except KeyboardInterrupt:
