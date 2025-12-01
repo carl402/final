@@ -11,6 +11,13 @@ class SimpleApp:
         self.app = dash.Dash(__name__)
         self.engine = MonteCarloEngine(n_simulations=5000)
         self.logged_in = False
+        # Base de datos simulada de usuarios
+        self.users_db = [
+            {'id': 1, 'username': 'admin', 'email': 'admin@company.com', 'role': 'admin', 'status': 'active'},
+            {'id': 2, 'username': 'user1', 'email': 'user1@company.com', 'role': 'user', 'status': 'active'},
+            {'id': 3, 'username': 'manager1', 'email': 'manager1@company.com', 'role': 'manager', 'status': 'active'}
+        ]
+        self.next_user_id = 4
         self.setup_layout()
         self.setup_callbacks()
     
@@ -18,6 +25,8 @@ class SimpleApp:
         self.app.layout = html.Div([
             dcc.Store(id='session', data={'logged_in': False}),
             dcc.Store(id='current-page', data='dashboard'),
+            dcc.Store(id='users-data', data=self.users_db),
+            dcc.Store(id='edit-user-id', data=None),
             html.Div(id='main-container')
         ])
     
@@ -127,6 +136,85 @@ class SimpleApp:
                     ], style={'backgroundColor': '#e74c3c', 'padding': '20px', 'borderRadius': '8px', 'textAlign': 'center', 'margin': '10px', 'minWidth': '200px'})
                 ], style={'display': 'flex', 'justifyContent': 'center', 'flexWrap': 'wrap'})
             ])
+        
+        @self.app.callback(
+            Output('users-data', 'data'),
+            [Input('create-user-btn', 'n_clicks'),
+             Input('save-user-btn', 'n_clicks'),
+             Input({'type': 'delete-user', 'index': dash.dependencies.ALL}, 'n_clicks')],
+            [State('new-username', 'value'),
+             State('new-email', 'value'),
+             State('new-role', 'value'),
+             State('edit-username', 'value'),
+             State('edit-email', 'value'),
+             State('edit-role', 'value'),
+             State('edit-user-id', 'data'),
+             State('users-data', 'data')],
+            prevent_initial_call=True
+        )
+        def manage_users(create_clicks, save_clicks, delete_clicks, 
+                        new_username, new_email, new_role,
+                        edit_username, edit_email, edit_role, edit_id, users_data):
+            ctx = dash.callback_context
+            if not ctx.triggered:
+                return users_data
+            
+            trigger = ctx.triggered[0]['prop_id']
+            
+            # Crear usuario
+            if 'create-user-btn' in trigger and new_username and new_email:
+                new_user = {
+                    'id': self.next_user_id,
+                    'username': new_username,
+                    'email': new_email,
+                    'role': new_role or 'user',
+                    'status': 'active'
+                }
+                users_data.append(new_user)
+                self.next_user_id += 1
+                return users_data
+            
+            # Guardar edición
+            if 'save-user-btn' in trigger and edit_id and edit_username and edit_email:
+                for user in users_data:
+                    if user['id'] == edit_id:
+                        user['username'] = edit_username
+                        user['email'] = edit_email
+                        user['role'] = edit_role or 'user'
+                        break
+                return users_data
+            
+            # Eliminar usuario
+            if 'delete-user' in trigger:
+                button_data = eval(trigger.split('.')[0])
+                user_id = button_data['index']
+                users_data = [user for user in users_data if user['id'] != user_id]
+                return users_data
+            
+            return users_data
+        
+        @self.app.callback(
+            [Output('edit-user-id', 'data'),
+             Output('edit-username', 'value'),
+             Output('edit-email', 'value'),
+             Output('edit-role', 'value')],
+            Input({'type': 'edit-user', 'index': dash.dependencies.ALL}, 'n_clicks'),
+            State('users-data', 'data'),
+            prevent_initial_call=True
+        )
+        def load_user_for_edit(edit_clicks, users_data):
+            ctx = dash.callback_context
+            if not ctx.triggered or not any(edit_clicks):
+                return None, '', '', 'user'
+            
+            button_data = eval(ctx.triggered[0]['prop_id'].split('.')[0])
+            user_id = button_data['index']
+            
+            user = next((u for u in users_data if u['id'] == user_id), None)
+            if user:
+                return user['id'], user['username'], user['email'], user['role']
+            
+            return None, '', '', 'user'
     
     def login_layout(self):
         return html.Div([
@@ -302,8 +390,98 @@ class SimpleApp:
     def users_page(self):
         return html.Div([
             html.H2("👥 Gestión de Usuarios", style={'color': '#2c3e50'}),
-            html.P("Panel de administración de usuarios"),
-            html.Button("+ Nuevo Usuario", style={'padding': '10px 20px', 'backgroundColor': '#9b59b6', 'color': 'white', 'border': 'none', 'borderRadius': '5px'})
+            
+            # Formulario Crear Usuario
+            html.Div([
+                html.H3("➕ Crear Nuevo Usuario"),
+                html.Div([
+                    html.Div([
+                        html.Label("Usuario:"),
+                        dcc.Input(id='new-username', placeholder='Nombre de usuario', style={'width': '100%', 'padding': '8px', 'margin': '5px 0'})
+                    ], style={'width': '30%', 'display': 'inline-block', 'marginRight': '3%'}),
+                    html.Div([
+                        html.Label("Email:"),
+                        dcc.Input(id='new-email', placeholder='email@company.com', style={'width': '100%', 'padding': '8px', 'margin': '5px 0'})
+                    ], style={'width': '30%', 'display': 'inline-block', 'marginRight': '3%'}),
+                    html.Div([
+                        html.Label("Rol:"),
+                        dcc.Dropdown(id='new-role', options=[
+                            {'label': 'Usuario', 'value': 'user'},
+                            {'label': 'Manager', 'value': 'manager'},
+                            {'label': 'Admin', 'value': 'admin'}
+                        ], value='user', style={'margin': '5px 0'})
+                    ], style={'width': '30%', 'display': 'inline-block'})
+                ]),
+                html.Button("➕ Crear Usuario", id='create-user-btn', 
+                           style={'marginTop': '15px', 'padding': '10px 20px', 'backgroundColor': '#27ae60', 'color': 'white', 'border': 'none', 'borderRadius': '5px', 'cursor': 'pointer'})
+            ], style={'backgroundColor': '#f8f9fa', 'padding': '20px', 'borderRadius': '8px', 'marginBottom': '30px'}),
+            
+            # Formulario Editar Usuario
+            html.Div([
+                html.H3("✏️ Editar Usuario"),
+                html.Div([
+                    html.Div([
+                        html.Label("Usuario:"),
+                        dcc.Input(id='edit-username', placeholder='Selecciona un usuario para editar', style={'width': '100%', 'padding': '8px', 'margin': '5px 0'})
+                    ], style={'width': '30%', 'display': 'inline-block', 'marginRight': '3%'}),
+                    html.Div([
+                        html.Label("Email:"),
+                        dcc.Input(id='edit-email', style={'width': '100%', 'padding': '8px', 'margin': '5px 0'})
+                    ], style={'width': '30%', 'display': 'inline-block', 'marginRight': '3%'}),
+                    html.Div([
+                        html.Label("Rol:"),
+                        dcc.Dropdown(id='edit-role', options=[
+                            {'label': 'Usuario', 'value': 'user'},
+                            {'label': 'Manager', 'value': 'manager'},
+                            {'label': 'Admin', 'value': 'admin'}
+                        ], value='user', style={'margin': '5px 0'})
+                    ], style={'width': '30%', 'display': 'inline-block'})
+                ]),
+                html.Button("💾 Guardar Cambios", id='save-user-btn', 
+                           style={'marginTop': '15px', 'padding': '10px 20px', 'backgroundColor': '#3498db', 'color': 'white', 'border': 'none', 'borderRadius': '5px', 'cursor': 'pointer'})
+            ], style={'backgroundColor': '#e8f4fd', 'padding': '20px', 'borderRadius': '8px', 'marginBottom': '30px'}),
+            
+            # Lista de Usuarios
+            html.Div(id='users-list')
+        ])
+    
+    @self.app.callback(
+        Output('users-list', 'children'),
+        Input('users-data', 'data')
+    )
+    def update_users_list(users_data):
+        if not users_data:
+            return html.P("No hay usuarios")
+        
+        users_cards = []
+        for user in users_data:
+            role_color = {'admin': '#e74c3c', 'manager': '#f39c12', 'user': '#27ae60'}.get(user['role'], '#95a5a6')
+            
+            card = html.Div([
+                html.Div([
+                    html.H4(f"👤 {user['username']}", style={'margin': 0, 'color': '#2c3e50'}),
+                    html.P(f"📧 {user['email']}", style={'margin': '5px 0', 'color': '#7f8c8d'}),
+                    html.Span(user['role'].upper(), 
+                              style={'backgroundColor': role_color, 'color': 'white', 'padding': '3px 8px', 'borderRadius': '12px', 'fontSize': '12px'})
+                ], style={'flex': '1'}),
+                html.Div([
+                    html.Button("✏️ Editar", 
+                               id={'type': 'edit-user', 'index': user['id']},
+                               style={'padding': '5px 10px', 'backgroundColor': '#3498db', 'color': 'white', 'border': 'none', 'borderRadius': '3px', 'marginRight': '5px', 'cursor': 'pointer'}),
+                    html.Button("🗑️ Eliminar", 
+                               id={'type': 'delete-user', 'index': user['id']},
+                               style={'padding': '5px 10px', 'backgroundColor': '#e74c3c', 'color': 'white', 'border': 'none', 'borderRadius': '3px', 'cursor': 'pointer'})
+                ])
+            ], style={
+                'display': 'flex', 'alignItems': 'center', 'justifyContent': 'space-between',
+                'backgroundColor': 'white', 'padding': '15px', 'borderRadius': '8px', 
+                'marginBottom': '10px', 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'
+            })
+            users_cards.append(card)
+        
+        return html.Div([
+            html.H3(f"📋 Lista de Usuarios ({len(users_data)})"),
+            html.Div(users_cards)
         ])
     
     def run_server(self, debug=False, port=8050):

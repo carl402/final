@@ -110,7 +110,7 @@ def main():
         print("\nSistema detenido por el usuario")
     except Exception as e:
         print(f"\nError al iniciar dashboard: {e}")
-        print("💡 Asegúrese de tener instaladas todas las dependencias:")
+        print(" Asegúrese de tener instaladas todas las dependencias:")
         print("   pip install -r requirements.txt")
 
 if __name__ == "__main__":
