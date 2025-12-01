@@ -1,0 +1,23 @@
+{
+  "name": "Monte Carlo Decision Engine",
+  "description": "Sistema de decisiones empresariales con simulaciones Monte Carlo y base de datos Neon",
+  "repository": "https://github.com/usuario/monte-carlo-decision-engine",
+  "keywords": ["python", "monte-carlo", "business-decisions", "neon", "postgresql"],
+  "env": {
+    "NEON_DATABASE_URL": {
+      "description": "URL de conexión a base de datos Neon PostgreSQL",
+      "required": true
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "free"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ]
+}
